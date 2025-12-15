@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>시각 지능 색차 식별 시스템</title>
+    <link rel="stylesheet" href="./css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <div id="loginPage" class="login-container">
+        <div class="login-box fade-in">
+            <h1>🎨 시각 지능 색차 식별 시스템(고려아연)</h1>
+            <p>실시간 모니터링 대시보드</p>
+
+            <div id="loginError" class="error-message" style="display: none;"></div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">사용자명</label>
+                    <input type="text" id="username" name="username" placeholder="admin" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">비밀번호</label>
+                    <input type="password" id="password" name="password" placeholder="••••••••" required>
+                </div>
+
+                <button type="submit" class="btn-login">
+                    <span id="loginBtnText">로그인</span>
+                    <span id="loginLoading" class="loading" style="display: none;"></span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div id="dashboard" class="dashboard">
+        <header>
+            <div class="logo">
+                <h1>🎨 시각 지능 색차 식별 시스템(고려아연)</h1>
+            </div>
+
+            <div class="device-selector-container">
+                <label for="deviceSelector"
+                    style="color: var(--text-secondary); margin-right: 10px; font-weight: bold;">
+                    <i class="fas fa-desktop"></i> 현재 기기:
+                </label>
+                <select id="deviceSelector" class="custom-select" onchange="switchDevice(this.value)">
+                    <option value="">기기를 선택하세요</option>
+                </select>
+                <span id="currentDeviceStatus" class="status-indicator active" style="margin-left: 10px;"></span>
+
+                <!-- [추가] 동기화 상태 메시지 (평소에는 안 보임 opacity: 0) -->
+                <span id="syncStatusMessage"
+                    style="margin-left: 15px; font-size: 13px; font-weight: bold; opacity: 0; transition: opacity 0.5s ease;"></span>
+
+                <!-- [수정] 기기 재부팅 버튼 (왼쪽 마진 추가하여 오른쪽으로 밀기) -->
+                <button onclick="openRebootModal()" class="btn btn-sm btn-reboot btn-animate" title="현재 기기 재부팅"
+                    style="margin-left: 20px;">
+                    <i class="fas fa-power-off"></i> <span>재부팅</span>
+                </button>
+            </div>
+            <div class="header-info">
+                <div class="user-info">
+                    <i class="fas fa-user-circle"></i>
+                    <span id="currentUser">사용자</span>
+                </div>
+                <button class="btn-logout" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> 로그아웃
+                </button>
+            </div>
+        </header>
+
+        <div id="alertBanner" class="alert-banner">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="alertMessage"></span>
+        </div>
+
+        <main>
+            <div class="stats-grid">
+                <div class="stat-card fade-in">
+                    <div class="icon">
+                        <i class="fas fa-clipboard-check"></i>
+                    </div>
+                    <h3>금일 총 검사</h3>
+                    <div class="value" id="totalInspections">0</div>
+                    <div class="label">건</div>
+                </div>
+
+                <div class="stat-card success fade-in" style="animation-delay: 0.1s;">
+                    <div class="icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <h3>양호</h3>
+                    <div class="value" id="goodCount">0</div>
+                    <div class="label">건 (<span id="goodRate">0</span>%)</div>
+                </div>
+
+                <div class="stat-card danger fade-in" style="animation-delay: 0.2s;">
+                    <div class="icon">
+                        <i class="fas fa-times-circle"></i>
+                    </div>
+                    <h3>필터 손상 의심</h3>
+                    <div class="value" id="defectCount">0</div>
+                    <div class="label">건 (<span id="defectRate">0</span>%)</div>
+                </div>
+
+                <div class="stat-card fade-in" style="animation-delay: 0.3s;">
+                    <div class="icon">
+                        <i class="fas fa-cogs"></i>
+                    </div>
+                    <h3>가동률</h3>
+                    <div class="value" id="operationRate">0</div>
+                    <div class="label">%</div>
+                </div>
+            </div>
+
+            <div class="main-grid">
+                <div class="chart-container fade-in">
+                    <div class="chart-header">
+                        <h2><i class="fas fa-chart-line"></i> 시간별 검사 데이터</h2>
+                        <div class="chart-controls">
+                            <button class="btn active" onclick="updateChartRange(60)">1시간</button>
+                            <button class="btn" onclick="updateChartRange(180)">3시간</button>
+                            <button class="btn" onclick="updateChartRange(360)">6시간</button>
+                        </div>
+                    </div>
+                    <canvas id="chartCanvas"></canvas>
+                </div>
+
+                <div class="video-container fade-in">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h2><i class="fas fa-video"></i> 현장 영상</h2>
+                        <!-- ★★★ 비디오 모달을 여는 버튼입니다. ★★★ -->
+                        <button onclick="openVideoModal()" class="btn btn-primary btn-sm">
+                            <i class="fas fa-expand mr-1"></i> 확대 보기
+                        </button>
+                    </div>
+                    <div class="video-wrapper">
+                        <!-- 
+                            수정된 비디오 스트림 영역:
+                            일반적으로 서버의 /video_feed 경로를 통해 MJPEG 스트림을 받습니다.
+                            onerror는 스트림 연결 실패 시 대체 이미지를 표시합니다.
+                        -->
+                        <img id="videoFeed" src="placeholder_video.png" alt="실시간 카메라 피드"
+                            style="width: 100%; height: 100%; object-fit: contain;">
+                    </div>
+                    <div class="video-status">
+                        <span id="videoStatusIndicator" class="status-indicator"></span>
+                        <span id="videoStatusText">연결 대기 중</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls-panel fade-in expander-container">
+                <div class="expander-header" onclick="toggleExpander('controlsContent')">
+                    <h2>
+                        <i class="fas fa-sliders-h"></i> 설정 및 제어
+                    </h2>
+                    <button class="expander-toggle">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+
+                <div id="controlsContent" class="expander-content">
+
+                    <div class="control-group">
+                        <label>
+                            <i class="fas fa-bell"></i> 불량률 알람 임계값 (%)
+                        </label>
+                        <div class="control-row">
+                            <button class="btn btn-primary" onclick="openThresholdSettingsModal()">
+                                <i class="fas fa-cog"></i> 설정
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label>
+                            <i class="fas fa-download"></i> 데이터 내보내기 (시작 날짜 기준)
+                        </label>
+                        <div class="control-row" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <div style="flex-grow: 1; width: 100%;">
+                                <label for="exportStartTime"
+                                    style="font-size: 12px; color: var(--text-secondary); display: block;">시작 날짜 및
+                                    시간</label>
+                                <div style="position: relative;">
+                                    <input type="datetime-local" id="exportStartTime" name="start_time"
+                                        style="width: 100%;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="export-buttons" style="display: flex; gap: 10px;">
+                            <button id="exportCompressedDataBtn" class="btn-export btn-highlight" style="flex: 1;">
+                                <i class="fas fa-file-archive"></i> <span>압축 파일 다운로드</span>
+                            </button>
+
+                            <button onclick="openLogFolder()" class="btn btn-secondary"
+                                style="flex: 1; background-color: #6c757d; color: white;">
+                                <i class="fas fa-folder-open"></i> <span>일일 로그 확인</span>
+                            </button>
+                            <button onclick="openDeleteDataModal()" class="btn btn-danger"
+                                style="flex: 1; background-color: #dc3545; color: white;">
+                                <i class="fas fa-trash-alt"></i> <span>저장 데이터 삭제</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="control-group device-list-container">
+                        <div class="device-list-header">
+                            <label style="margin-bottom: 0;">
+                                <i class="fas fa-microchip"></i> 등록된 기기 목록
+                            </label>
+                            <button class="btn btn-success-green btn-small" onclick="openAddDeviceModal()">
+                                <i class="fas fa-plus"></i> 기기 추가
+                            </button>
+                        </div>
+
+                        <table class="data-table" style="font-size: 13px;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 45%;">이름</th>
+                                    <th style="width: 45%;">IP 주소</th>
+                                    <th style="width: 10%; text-align: center;">삭제</th>
+                                </tr>
+                            </thead>
+                            <tbody id="deviceListBody">
+                                <tr>
+                                    <td colspan="3" style="text-align: center; color: var(--text-secondary);">
+                                        등록된 기기가 없습니다.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="data-table-container fade-in expander-container">
+                <div class="expander-header" onclick="toggleExpander('dataTableContent')">
+                    <h2>
+                        <i class="fas fa-table"></i> 최근 검사 데이터
+                    </h2>
+                    <button class="expander-toggle">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+
+                <div id="dataTableContent" class="expander-content">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>시간</th>
+                                <th>판정</th>
+                                <th>불량률</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTableBody">
+                            <tr>
+                                <td colspan="4" style="text-align: center; color: var(--text-secondary);">
+                                    데이터를 불러오는 중...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="data-table-container fade-in expander-container" style="margin-top: 20px;">
+                <div class="expander-header" onclick="toggleExpander('modelUpdateContent')">
+                    <h2>
+                        <i class="fas fa-robot"></i> 인공지능 모델 업데이트
+                    </h2>
+                    <button class="expander-toggle">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+
+                <div id="modelUpdateContent" class="expander-content">
+                    <div id="dropZone" class="drop-zone">
+                        <div class="drop-zone-prompt">
+                            <i class="fas fa-file-upload"></i>
+                            <p>업데이트할 모델 파일을 이곳에 드래그 앤 드롭하거나 클릭하세요.</p>
+                            <small>(.pt, .pth 등)</small>
+                        </div>
+                        <input type="file" id="modelFileInput" style="display: none;" accept=".pt,.onnx,.weights, .pth">
+                    </div>
+                    <div id="fileListContainer" style="margin-top: 15px; display: none;">
+                        <strong>선택된 파일:</strong>
+                        <ul id="fileList"></ul>
+                    </div>
+                    <div class="upload-button-container">
+                        <button id="uploadModelButton" class="btn btn-primary" disabled><i
+                                class="fas fa-paper-plane"></i> 전송</button>
+                    </div>
+                    <div id="uploadStatus"
+                        style="margin-top: 10px; font-size: 13px; color: var(--text-secondary); text-align: center;">
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- [추가] 재부팅 확인 모달 -->
+    <div id="rebootModal" class="modal">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <div style="font-size: 48px; color: #dc3545; margin-bottom: 15px;">
+                <i class="fas fa-exclamation-circle"></i>
+            </div>
+            <h2 style="margin-bottom: 10px;">기기 재부팅</h2>
+            <p style="margin-bottom: 25px; color: var(--text-secondary);">
+                정말로 <span id="rebootTargetDevice" style="color: var(--text-primary); font-weight: bold;"></span> 기기를
+                재부팅하시겠습니까?<br>
+                재부팅 중에는 연결이 끊어집니다.
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button onclick="executeReboot()" class="btn btn-danger"
+                    style="background-color: #dc3545; padding: 10px 30px;">
+                    예 (Y)
+                </button>
+                <button onclick="closeRebootModal()" class="btn" style="padding: 10px 30px;">
+                    아니오 (N)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- [추가] 데이터 삭제 확인 모달 -->
+    <div id="deleteDataModal" class="modal">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <div style="font-size: 48px; color: #dc3545; margin-bottom: 15px;">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <h2 style="margin-bottom: 10px;">저장 데이터 삭제</h2>
+            <p style="margin-bottom: 25px; color: var(--text-secondary);">
+                정말로 모든 저장된 이미지 데이터를 삭제하시겠습니까?<br>
+                이 작업은 되돌릴 수 없습니다.
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button onclick="executeDeleteData()" class="btn btn-danger"
+                    style="background-color: #dc3545; padding: 10px 30px;">
+                    예 (Y)
+                </button>
+                <button onclick="closeDeleteDataModal()" class="btn" style="padding: 10px 30px;">
+                    아니오 (N)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="historyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-history"></i> 과거 데이터 조회</h2>
+                <button class="btn-close" onclick="closeHistoryModal()">&times;</button>
+            </div>
+
+            <div class="control-group">
+                <label>시작 시간</label>
+                <input type="datetime-local" id="historyStartTime">
+            </div>
+
+            <div class="control-group">
+                <label>종료 시간</label>
+                <input type="datetime-local" id="historyEndTime">
+            </div>
+
+            <button class="btn btn-primary" onclick="loadHistoryData()" style="width: 100%;">
+                <i class="fas fa-search"></i> 조회하기
+            </button>
+
+            <div id="historyResults" style="margin-top: 20px; display: none;">
+                <h3 style="margin-bottom: 15px;">조회 결과</h3>
+                <div style="background: var(--bg-card); padding: 15px; border-radius: 8px;">
+                    <p>총 검사: <strong id="historyTotal">0</strong>건</p>
+                    <p>양호: <strong id="historyGood">0</strong>건</p>
+                    <p>필터파손: <strong id="historyDefect">0</strong>건</p>
+                    <p>불량률: <strong id="historyDefectRate">0</strong>%</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="addDeviceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-plus-circle"></i> 새로운 기기 등록</h2>
+                <button class="btn-close" onclick="closeAddDeviceModal()">&times;</button>
+            </div>
+
+            <form id="addDeviceForm">
+                <div class="control-group">
+                    <label for="deviceName">기기 이름 (예: Line-A-Camera)</label>
+                    <input type="text" id="deviceName" required>
+                </div>
+
+                <div class="control-group">
+                    <label for="deviceIP">IP 주소 (예: 192.168.1.10:8080)</label>
+                    <input type="text" id="deviceIP" required
+                        pattern="^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(:\d+)?$">
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px;">
+                    <i class="fas fa-save"></i> 기기 저장
+                </button>
+            </form>
+        </div>
+    </div>
+    <div id="videoModal" class="modal large-modal">
+        <div class="modal-content large-modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-expand"></i> 현장 영상 확대</h2>
+                <button class="btn-close" onclick="closeVideoModal()">&times;</button>
+            </div>
+
+            <div class="large-video-wrapper">
+                <img id="largeVideoFeed" src="" alt="확대된 실시간 카메라 피드"
+                    style="width: 100%; height: 100%; object-fit: contain;">
+            </div>
+        </div>
+    </div>
+
+    <div id="thresholdSettingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-tasks"></i> 불량률 임계값 단계 설정</h2>
+                <button class="btn-close" onclick="closeThresholdSettingsModal()">&times;</button>
+            </div>
+            <form id="thresholdSettingsForm">
+                <p class="description" style="margin-bottom: 20px;">
+                    각 단계의 시작이 되는 최소 불량률(%) 값을 입력하세요. (0 이상 100 미만)
+                </p>
+                <div class="threshold-level">
+                    <label for="threshold_safe">안전</label>
+                    <input type="text" id="threshold_safe" min="0" max="100" value="0">
+                </div>
+                <div class="threshold-level">
+                    <label for="threshold_normal">정상</label>
+                    <input type="text" id="threshold_normal" min="0" max="100" value="20">
+                </div>
+                <div class="threshold-level">
+                    <label for="threshold_caution">경계</label>
+                    <input type="text" id="threshold_caution" min="0" max="100" value="40">
+                </div>
+                <div class="threshold-level">
+                    <label for="threshold_warning">주의</label>
+                    <input type="text" id="threshold_warning" min="0" max="100" value="60">
+                </div>
+                <div class="threshold-level">
+                    <label for="threshold_danger">위험</label>
+                    <input type="text" id="threshold_danger" min="0" max="100" value="80">
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> 전송
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <script src="./js/app.js"></script>
+</body>
+
+</html>

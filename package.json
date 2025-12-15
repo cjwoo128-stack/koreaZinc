@@ -1,0 +1,46 @@
+{
+  "name": "koreazinc-node",
+  "version": "1.0.2",
+  "main": "electron.js",
+  "scripts": {
+    "start": "node_modules\\.bin\\electron .",
+    "build": "electron-builder",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "date-fns": "^3.6.0",
+    "express": "^4.19.2",
+    "fast-csv": "^5.0.1",
+    "form-data": "^4.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "electron": "^31.1.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.koreazinc.colorvision",
+    "productName": "시각 지능 색차 식별 시스템",
+    "asar": true,
+    "asarUnpack": [
+      "storage/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "files": [
+      "electron.js",
+      "preload.js",
+      "static/**/*",
+      "storage/**/*"
+    ]
+  }
+}
