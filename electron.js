@@ -715,32 +715,27 @@ expressApp.post(
 ipcMain.handle(
   "api:get-recent-data",
   (event, { token, minutes, device_ip }) => {
-    if (!verifyToken(token).valid) throw new Error("Not authenticated");
-
-    const cutoffTime = new Date(Date.now() - minutes * 60 * 1000);
+    const KST_OFFSET = 9 * 60 * 60 * 1000;
+    const cutoffTime = new Date(Date.now() - minutes * 60 * 1000 + KST_OFFSET);
     // [수정] device_ip가 유효할 때만 targetDeviceId를 찾도록 변경
     const targetDeviceId = device_ip ? getDeviceNameByIp(device_ip) : undefined;
 
-    const filtered_data = inspection_data.filter((d) => {
-      const itemTime = safeParseDate(d.timestamp); // [수정] safeParseDate 사용
-      // 1. 시간 필터링
-      const isRecent = itemTime > cutoffTime;
-      if (!isRecent) return false;
-      // 2. 기기 필터링
-      // [수정] targetDeviceId가 undefined이면 기기 필터링을 적용하지 않습니다.
-      const isTargetDevice =
-        targetDeviceId === undefined || d.device_id === targetDeviceId;
-      return isRecent && isTargetDevice;
-    }).map(d => ({ // [추가] timestamp를 ISO 8601 UTC 문자열로 변환
-        ...d,
-        timestamp: safeParseDate(d.timestamp).toISOString()
-    }));
-
-    return {
-      data: filtered_data,
-      count: filtered_data.length,
-    };
-  }
+          const filtered_data = inspection_data.filter((d) => {
+            const itemTime = safeParseDate(d.timestamp); // [수정] safeParseDate 사용
+            const isRecent = itemTime > cutoffTime;
+            // 1. 시간 필터링
+            if (!isRecent) return false;
+            // 2. 기기 필터링
+            // [수정] targetDeviceId가 undefined이면 기기 필터링을 적용하지 않습니다.
+            const isTargetDevice =
+              targetDeviceId === undefined || d.device_id === targetDeviceId;
+            return isRecent && isTargetDevice;
+          });
+    
+          return {
+            data: filtered_data,
+            count: filtered_data.length,
+          };  }
 );
 
 ipcMain.handle(
@@ -783,44 +778,44 @@ ipcMain.handle(
     if (!verifyToken(token).valid) throw new Error("Not authenticated");
 
     const snapshot_interval_minutes = minutes <= 60 ? 1 : 3;
-    const cutoffTime = new Date(Date.now() - minutes * 60 * 1000);
+    const KST_OFFSET = 9 * 60 * 60 * 1000;
+    const cutoffTime = new Date(Date.now() - minutes * 60 * 1000 + KST_OFFSET);
     const targetDeviceId = device_ip ? getDeviceNameByIp(device_ip) : undefined;
 
-    // 1. 필터링 및 원본 데이터 수집
+    // 1. 필터링 (timestamp는 문자열로 유지)
     const filtered_raw_data = inspection_data
       .filter((d) => {
-        const itemTime = safeParseDate(d.timestamp); // [수정] safeParseDate 사용
+        const itemTime = safeParseDate(d.timestamp); // 비교를 위해 Date 객체로 변환
         const isRecent = itemTime > cutoffTime;
         const isTargetDevice =
           targetDeviceId === undefined || d.device_id === targetDeviceId;
         return isRecent && isTargetDevice;
-      })
-      .map((d) => ({
-        timestamp: safeParseDate(d.timestamp), // [수정] safeParseDate 사용, Date 객체로 변환
-        confidence: d.confidence,
-      }));
+      });
 
-    // 2. 시간순 정렬
-    filtered_raw_data.sort((a, b) => a.timestamp - b.timestamp);
+    // 2. 시간순 정렬 (비교 시점에만 Date 객체 사용)
+    filtered_raw_data.sort((a, b) => safeParseDate(a.timestamp) - safeParseDate(b.timestamp));
 
     // 3. 일정 간격으로 데이터 샘플링 (스냅샷)
     const chart_data = [];
     let next_capture_time = null;
 
     for (const item of filtered_raw_data) {
-      if (!next_capture_time || item.timestamp >= next_capture_time) {
+      const itemTime = safeParseDate(item.timestamp); // 로직 처리를 위해 Date 객체 생성
+
+      if (!next_capture_time || itemTime >= next_capture_time) {
         let conf_percent = item.confidence;
         if (conf_percent <= 1.0) {
           conf_percent *= 100;
         }
 
+        // 프런트엔드에는 원본 timestamp 문자열을 전달
         chart_data.push({
-          time: item.timestamp.toISOString(),
+          time: item.timestamp,
           confidence: parseFloat(conf_percent.toFixed(1)),
         });
 
         next_capture_time = new Date(
-          item.timestamp.getTime() + snapshot_interval_minutes * 60 * 1000
+          itemTime.getTime() + snapshot_interval_minutes * 60 * 1000
         );
       }
     }

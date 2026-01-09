@@ -292,8 +292,19 @@ function checkAlerts(stats) {
       1
     )}%, 임계값: ${warningThresholdForAlert.toFixed(1)}%)`;
     alertBanner.classList.add("active");
+
+    const alarmSound = document.getElementById("alarmSound");
+    if (alarmSound && alarmSound.paused) {
+      alarmSound.play().catch(e => console.error("오디오 재생 실패:", e));
+    }
   } else {
     alertBanner.classList.remove("active");
+
+    const alarmSound = document.getElementById("alarmSound");
+    if (alarmSound && !alarmSound.paused) {
+      alarmSound.pause();
+      alarmSound.currentTime = 0;
+    }
   }
 }
 // 차트 객체 초기 생성
@@ -438,7 +449,7 @@ function updateChart(responseData) {
       return date.toLocaleTimeString("ko-KR", {
         hour: "2-digit",
         minute: "2-digit",
-        second: "2-digit",
+        hour12: false,
       });
     });
 
